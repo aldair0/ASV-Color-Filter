@@ -1,4 +1,4 @@
-Attribute VB_Name = "Module1"
+Attribute VB_Name = "ASV Colorizer"
 Sub HighlightDuplicates()
     Dim ws As Worksheet
     Dim lastRow As Long
