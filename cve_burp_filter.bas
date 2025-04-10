@@ -36,12 +36,19 @@ Sub HighlightDuplicates()
         currentComponent = Trim(ws.Cells(i, 2).Value) ' Column B - Component
         currentCVE = Trim(ws.Cells(i, 13).Value) ' Column M - CVE ID
         currentVulnTitle = Trim(ws.Cells(i, 3).Value) ' Column C - Vulnerability Title
-        currentDetails = Trim(ws.Cells(i, 15).Value) ' Column O - All Details
+        
+        ' Check for error in Column O before processing
+        If IsError(ws.Cells(i, 15).Value) Then
+            currentDetails = "" ' Set to empty string if error found
+            Debug.Print "Row " & i & " skipped: Error in Column O (All Details)"
+        Else
+            currentDetails = Trim(ws.Cells(i, 15).Value) ' Column O - All Details
+        End If
         
         ' Handle R7 entries
         If UCase(currentTool) = "R7" And currentCVE <> "" Then
             ipPort = GetIpPort(currentComponent)
-            If ipPort <> "" Then
+            If ipPort <> "" And currentDetails <> "" Then ' Only process if Details is not empty (i.e., no error)
                 ' Store R7 entries with CVE, IP:Port, and Details
                 Dim r7Key As String
                 r7Key = currentCVE & "|" & ipPort & "|" & NormalizeString(currentDetails)
@@ -104,11 +111,18 @@ Sub HighlightDuplicates()
         currentTool = Trim(ws.Cells(i, 1).Value) ' Column A - Tools
         currentCVE = Trim(ws.Cells(i, 13).Value) ' Column M - CVE ID
         currentComponent = ws.Cells(i, 2).Value ' Column B - Component
-        currentDetails = Trim(ws.Cells(i, 15).Value) ' Column O - All Details
+        
+        ' Check for error in Column O before processing
+        If IsError(ws.Cells(i, 15).Value) Then
+            currentDetails = "" ' Set to empty string if error found
+            Debug.Print "Row " & i & " skipped: Error in Column O (All Details)"
+        Else
+            currentDetails = Trim(ws.Cells(i, 15).Value) ' Column O - All Details
+        End If
         
         If UCase(currentTool) = "NESSUS" And currentCVE <> "" Then
             ipPort = GetIpPort(currentComponent)
-            If ipPort <> "" Then
+            If ipPort <> "" And currentDetails <> "" Then ' Only process if Details is not empty (i.e., no error)
                 ' Check if this CVE-IP:Port-Details combination exists in R7 entries
                 Dim nessusKey As String
                 nessusKey = currentCVE & "|" & ipPort & "|" & NormalizeString(currentDetails)
