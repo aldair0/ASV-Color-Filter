@@ -1,4 +1,3 @@
-Attribute VB_Name = "ASV Colorizer"
 Sub HighlightDuplicates()
     Dim ws As Worksheet
     Dim lastRow As Long
@@ -9,7 +8,10 @@ Sub HighlightDuplicates()
     Dim currentComponent As String
     Dim currentTool As String
     Dim currentVulnTitle As String
+    Dim currentDetails As String
     Dim ipPort As String
+    Dim nessusR7Matches As Long
+    Dim burpDuplicates As Long
     
     ' Set worksheet
     Set ws = ActiveSheet
@@ -24,21 +26,28 @@ Sub HighlightDuplicates()
     cveDict.CompareMode = 1 ' vbTextCompare
     burpDict.CompareMode = 1 ' vbTextCompare
     
-    ' First pass: Store R7 CVE-Component combinations and process Burp entries
+    ' Initialize counters
+    nessusR7Matches = 0
+    burpDuplicates = 0
+    
+    ' First pass: Store R7 CVE-Component-Details combinations and process Burp entries
     For i = 2 To lastRow ' Assuming row 1 is header
         currentTool = Trim(ws.Cells(i, 1).Value) ' Column A - Tools
         currentComponent = Trim(ws.Cells(i, 2).Value) ' Column B - Component
         currentCVE = Trim(ws.Cells(i, 13).Value) ' Column M - CVE ID
         currentVulnTitle = Trim(ws.Cells(i, 3).Value) ' Column C - Vulnerability Title
+        currentDetails = Trim(ws.Cells(i, 15).Value) ' Column O - All Details
         
         ' Handle R7 entries
         If UCase(currentTool) = "R7" And currentCVE <> "" Then
             ipPort = GetIpPort(currentComponent)
             If ipPort <> "" Then
-                ' Store R7 entries with CVE and IP:Port
-                If Not cveDict.Exists(currentCVE & "|" & ipPort) Then
-                    cveDict.Add currentCVE & "|" & ipPort, i
-                    Debug.Print "Row " & i & " (R7) added to CVE dictionary: " & currentCVE & "|" & ipPort
+                ' Store R7 entries with CVE, IP:Port, and Details
+                Dim r7Key As String
+                r7Key = currentCVE & "|" & ipPort & "|" & NormalizeString(currentDetails)
+                If Not cveDict.Exists(r7Key) Then
+                    cveDict.Add r7Key, i
+                    Debug.Print "Row " & i & " (R7) added to CVE dictionary: " & r7Key
                 End If
             End If
         End If
@@ -82,6 +91,7 @@ Sub HighlightDuplicates()
                     
                     ' Update dictionary to ensure we track the first row
                     burpDict(key) = -firstRow ' Mark as processed
+                    burpDuplicates = burpDuplicates + 1
                 End If
             Else
                 Debug.Print "Row " & i & " (Burp) skipped: Empty Component or Vulnerability Title"
@@ -94,17 +104,21 @@ Sub HighlightDuplicates()
         currentTool = Trim(ws.Cells(i, 1).Value) ' Column A - Tools
         currentCVE = Trim(ws.Cells(i, 13).Value) ' Column M - CVE ID
         currentComponent = ws.Cells(i, 2).Value ' Column B - Component
+        currentDetails = Trim(ws.Cells(i, 15).Value) ' Column O - All Details
         
         If UCase(currentTool) = "NESSUS" And currentCVE <> "" Then
             ipPort = GetIpPort(currentComponent)
             If ipPort <> "" Then
-                ' Check if this CVE-IP:Port combination exists in R7 entries
-                If cveDict.Exists(currentCVE & "|" & ipPort) Then
+                ' Check if this CVE-IP:Port-Details combination exists in R7 entries
+                Dim nessusKey As String
+                nessusKey = currentCVE & "|" & ipPort & "|" & NormalizeString(currentDetails)
+                If cveDict.Exists(nessusKey) Then
                     ' Clear existing formatting
                     ws.Range("A" & i & ":O" & i).Interior.ColorIndex = xlNone
                     ' Highlight entire Nessus row red
                     ws.Range("A" & i & ":O" & i).Interior.Color = vbRed
                     Debug.Print "Highlighted Row " & i & " in red (Nessus matches R7)"
+                    nessusR7Matches = nessusR7Matches + 1
                 End If
             End If
         End If
@@ -113,7 +127,13 @@ Sub HighlightDuplicates()
     ' Clean up
     Set cveDict = Nothing
     Set burpDict = Nothing
-    MsgBox "Duplicate check complete!", vbInformation
+    
+    ' Display completion message with match counts
+    MsgBox "Duplicate check complete!" & vbCrLf & vbCrLf & _
+           "I compared CVE Number, IP Address, and Details." & vbCrLf & _
+           "Found " & nessusR7Matches & " matching R7 and Nessus findings." & vbCrLf & _
+           "I compared Vulnerability Name and IP Address." & vbCrLf & _
+           "Found " & burpDuplicates & " multiple instances of Burp findings.", vbInformation
 End Sub
 
 ' Function to normalize strings (remove extra spaces, standardize line endings)
@@ -176,3 +196,4 @@ Function GetIpPort(component As String) As String
         GetIpPort = ""
     End If
 End Function
+
